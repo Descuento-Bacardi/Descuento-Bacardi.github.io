@@ -1,0 +1,1193 @@
+/**
+ * Module respponsible for all the my networks behaviour
+ * @authors Edgard Massot, Marc Mateos
+ */
+EP.mynets = (function(){
+
+	var ep = {},
+		config = {}
+		ep.views = {},
+		ep.models = {};
+	ep.newline = Handlebars.compile('{{{newline text}}}');
+
+	/**
+	 * MODELS
+	 */
+	ep.models.netSection = Backbone.Model.extend({
+		initialize:function(){
+			var nets = this.get('nets');
+			if (!this.get('nets_row')) {
+				this.attributes.nets_row = 2;
+			}
+
+			if (nets == undefined) {
+				nets = [{
+					id:ep.config.promotion_id+Math.round(new Date().getTime()),
+					net:'facebook',
+					target:ep.config.fb_page_id,
+					}
+				]
+			}
+
+			this.nets = new ep.models.nets(this.get('nets'));
+			Backbone.on('toggleSectionLayout',this.toggleLayout,this);
+			Backbone.on('changenetsxrow',this.changNetsxRow,this);
+
+
+
+		},
+		addImage:function(){
+			this.set({
+				image:'placeholder',
+				fullimage:'/img/add_media_placeholder_img.jpg',
+				video: null
+			})
+		},
+
+		addVideo: function(video) {
+			this.set({
+				video:video,
+				image:null
+			},{silent:true})
+
+			var id = this.get('id');
+			var self = this;
+			ep.mynets.save(function(response){
+				var nets = response.Promotion.my_networks.sections[0].nets;
+				self.set('video',response.Promotion.my_networks.sections[0].video);
+			});
+		},
+
+		toggleLayout: function(data) {
+			//Not for me?
+			if (this.get('id') != data.id) return;
+			var l = this.get('isVertical');
+			if (l == undefined) l = false;
+			this.set('isVertical',!l,{silent:true});
+			this.trigger('changelayout');
+		},
+		changNetsxRow: function(data,original) {
+			this.set('nets_row',original.val());
+			//this.trigger('changelayout');
+		},
+
+	});
+
+	ep.models.mynets = Backbone.Collection.extend({
+		model: ep.models.netSection,
+		current: 0,
+
+		getCurrent : function() {
+			return this.models[this.current];
+		},
+
+		getById : function(id) {
+			return this.models[0];
+		},
+
+		reorderNets: function(order){
+			var neworder = [];
+			var c = this.getCurrent();
+			var nets = c.nets;
+			for (var i in order) {
+				var p = order[i].split('-');
+				neworder.push(nets.getById(p[p.length-1]));
+			}
+			c.nets.models = neworder;
+			nets.trigger('reorder');
+		},
+
+		pendingChanges : function() {
+			var changed = false;
+			changed = _.size(this.getCurrent().changed) > 0;
+
+			if (!changed) {
+				this.getCurrent().nets.forEach(function(e){
+					if (_.size(e.changed)>0) changed = true;
+				});
+			}
+
+			return changed;
+		},
+
+		getChangesDone : function() {
+			return [];
+		},
+
+		save: function(cb){
+			var data = {id:this.current,section:this.getCurrent().toJSON()};
+
+			//Flat the nets
+
+			data.section.nets = this.getCurrent().nets.toJSON();
+			$.post('/promotions/saveNetSection/'+EP.mynets.config.promotion_id,data,function(response){
+				if (cb != undefined) {
+					$(document).trigger('just-saved');
+					cb(response);
+				}
+			},'json');
+
+			this.getCurrent().changed = {};
+			this.getCurrent().nets.forEach(function(e){
+				e.changed = {};
+			});
+			this.trigger('savePending');
+		}
+
+	});
+	//Represents a NET
+	ep.models.net = Backbone.Model.extend({
+		initialize: function() {
+			Backbone.on('toggleNetLayout',this.toggleLayout,this);
+		},
+
+		//Toggles the layout of a net
+		toggleLayout: function(data) {
+			//Not for me?
+			if (this.get('id') != data.id) return;
+			var l = this.get('isVertical');
+			if (l == undefined) l = false;
+			this.set('isVertical',!l);
+		},
+
+		//Adds an image to the network and removes the video
+		addImage:function() {
+			this.set({
+				image:'placeholder',
+				fullimage:'/img/add_media_placeholder_img.jpg',
+				video:null
+			})
+		},
+
+		//Adds a video to the network and saves it to the DB
+		addVideo: function(video) {
+			this.set({
+				video:video,
+				image:null
+			},{silent:true})
+
+			var id = this.get('id');
+			var self = this;
+			ep.mynets.save(function(response){
+				var nets = response.Promotion.my_networks.sections[0].nets;
+				for(var i in nets) {
+					if(nets[i].id == id) {
+						self.set('video',nets[i]['video']);
+					}
+				}
+			});
+		}
+	});
+	//This is the nets container
+	ep.models.nets = Backbone.Collection.extend({
+		model:ep.models.net,
+		current: 0,
+		nets_row: 1,
+
+		//Gets current net
+		getCurrent : function() {
+			return this.models[this.current];
+		},
+
+		//Gets a net by id
+		getById : function(id) {
+			return this.find(function(n){
+				return n.id == id;
+			});
+		},
+	});
+
+	/**
+	 * Represents the footer option
+	 * @param  {[type]} )  {		}        [description]
+	 * @param  {[type]} } [description]
+	 * @return {[type]}    [description]
+	 */
+	ep.models.footer = Backbone.Model.extend({
+		initialize: function() {
+			this.attributes['display_footer'] = this.attributes['display_footer']?1:0;
+			this.attributes['display_toc'] = this.attributes['display_toc']?1:0;
+			this.attributes['display_policy'] = this.attributes['display_policy']?1:0;
+		},
+
+		pendingChanges : function() {
+			var changed = false;
+			changed = _.size(this.changed) > 0;
+
+			return changed;
+		},
+
+		getChangesDone : function() {
+			return [];
+		},
+
+		save: function(){
+			var data = {id:'footer',info:this.toJSON()};
+			$.post('/promotions/saveConfig/'+EP.mynets.config.promotion_id,data,function(response){
+				if (pm) {
+					response.Promotion.config.footer.display_footer = response.Promotion.config.footer.display_footer ? 1:0;
+					response.Promotion.config.footer.display_toc = response.Promotion.config.footer.display_toc ? 1:0;
+					response.Promotion.config.footer.display_policy = response.Promotion.config.footer.display_policy ? 1:0;
+					pm.set('config',response.Promotion.config,{silent:true});
+					pm.set('powered',this.get('powered'),{silent:true});
+					//pm.save();
+
+				}
+
+			}.bind(this),'json');
+
+			this.changed = {};
+			this.trigger('savePending');
+		}
+	});
+
+	/**
+	 * This view enables the admin to add media to the power editor
+	 */
+	ep.views.mediaselector = Backbone.View.extend({
+		initialize: function(data) {
+			this.changeLayout = data.evt;
+			this.videoPopupOpen = false;
+			this.newrender();
+			this.model.on('change', this.newrender, this);
+
+			$.getScript('//apis.google.com/js/platform.js');
+		},
+
+		events:{
+			'click [data-media-select]':'mediaselect',
+		},
+
+		mediaselect:function(evt){
+			var data = $(evt.target).data('media-select');
+
+			//Intercept addVideo
+			if (data.action == 'changeVideo' && !this.videoPopupOpen) {
+				this.openVideoPopup();
+				return;
+			}
+			var video = $('#context-video',this.$el).val();
+
+			this.model[data.action](video);
+			this.videoPopupOpen = false;
+			evt.preventDefault();
+		},
+
+		//Opens the popup to allow users to enter a video
+		openVideoPopup:function() {
+			this.videoPopupOpen = true;
+			$('.popupinsertion',this.$el).html(EP.Handlebars.html('addVideoContext-template',{} ));
+		},
+
+		newrender: function(){
+			this.render();
+			this.onShow();
+		},
+
+		onShow: function() {
+			//this.render();
+			stylishSliderInputs(this.$el);
+		},
+
+		info: function() {
+			var d = this.model.toJSON();
+			d.evt = this.changeLayout;
+			return d;
+		},
+
+		render: function() {
+			this.$el.html(EP.Handlebars.html('media-template',this.info()));
+			return this;
+		}
+	});
+	/**
+	 * This view enables the admin to add media to the power editor
+	 */
+	ep.views.footer = Backbone.View.extend({
+		initialize: function(data) {
+			this.newrender();
+			this.model.on('change', this.render, this);
+		},
+		newrender: function(){
+			this.render();
+			this.onShow();
+		},
+
+		onShow: function() {
+			//this.render();
+			stylishSliderInputs(this.$el);
+		},
+
+		render: function() {
+			this.$el.html(EP.Handlebars.html('config-footer-template',this.model.toJSON()));
+			return this;
+		}
+	});
+	/***
+	* VIEWS
+	***/
+
+	ep.views.netSection = Backbone.View.extend({
+		initialize: function() {
+			this.render();
+			this.model.on('change', this.render, this);
+			this.model.on('changelayout', this.render, this);
+		},
+
+		events:{
+			'mouseenter .section-zone [data-pupload-fig]': 'changeremove',
+			'mouseleave .section-zone [data-pupload-fig]': 'hidechangeremove',
+			'click [data-play-video]':'playvideo'
+
+		},
+
+		changeremove: function() {
+			$('.changeremove',this.$el).show();
+		},
+
+		hidechangeremove: function() {
+			$('.changeremove',this.$el).hide();
+		},
+
+		changeImg: function() {
+			$('#s-img-0').trigger('click');
+		},
+
+		deleteImg: function() {
+			this.model.set({
+				image:null,
+				fullimage:null
+			});
+		},
+
+		deleteVideo: function() {
+			this.model.set({
+				video:null
+			});
+		},
+
+		playvideo:function(evt) {
+			var v = this.model.get('video');
+			embed(v.video_id, '', v.full_url, v.type);
+			evt.preventDefault();
+		},
+
+		onShow:function() {
+		},
+		renderNets: function(){
+			var data = {collection:this.model.nets,nets_row:this.model.get('nets_row')};
+			var v = new ep.views.nets(data);
+			var insert = $('.section-nets',this.$el).html(v.el);
+
+			this.netsviews = v;
+		},
+		renderSection: function() {
+			var tpl = this.model.get('client')?'netsection-template':'netsection-wrapper-template';
+			$('.net-section',this.$el).html(EP.Handlebars.html(tpl,this.model.toJSON()));
+			//Change remove interface
+			this.cr = new ep.views.changeremove({model:this.model,parent:this});
+			$('.remove_img',this.$el).html(this.cr.el).hide();
+
+			//Render the Nets of the section
+			this.renderNets();
+			//When done attach the pluploads
+			_.defer(function(){
+				this.onShow();
+			}.bind(this));
+		},
+
+		render: function() {
+
+			var changed = this.model.changedAttributes();
+
+			//If only the title has changed
+
+			if (_.size(changed) == 1 && changed.text != undefined) {
+				$('.box_title',this.$el).html(this.model.get('text'));
+				return;
+			}
+			//If only the title has changed
+
+			if (_.size(changed) == 1 && changed.description != undefined) {
+				$('.description',this.$el).html(ep.newline({text:this.model.get('description')}).toString());
+				return;
+			}
+			//Add the section where the nets will be rendered
+
+			this.$el.html(EP.Handlebars.html('nets-section',this.model.toJSON()));
+			//Render the section info
+			this.renderSection();
+
+			//Remove all pluploads
+			$('.plupload').each(function(i,e){
+				$(e).remove();
+			});
+			return this;
+		}
+	});
+
+	ep.views.nets = Backbone.View.extend({
+		tagName:'ul',
+		initialize:function(data){
+			this.nets_row = data.nets_row;
+			this.collection = data.collection;
+			 _.bindAll(this, 'render');
+			this.collection.bind('add', this.render,this);
+			this.collection.bind('reorder', this.render,this);
+			this.collection.bind('remove', this.render,this);
+			this.render();
+		},
+		className: function(){
+			if (!this.nets_row) this.nets_row = 1;
+			return "_"+this.nets_row+"cols answers-container";
+		},
+
+		render:function() {
+			this.$el.attr('class', _.result(this, 'className'));
+			var element = this.$el;
+			element.empty();
+			var views = [];
+			this.collection.forEach(function(item) {
+				var itemView = new EP.mynets.views.net({
+					model: item
+				});
+				element.append(itemView.el);
+				views.push(itemView);
+			});
+
+			this.views = views;
+			return this;
+		}
+	});
+	ep.views.net = Backbone.View.extend({
+		tagName:'li',
+		initialize:function(){
+			this.render();
+			this.model.on('change', this.fullrender, this);
+		},
+		className: function(){
+			var c = 'double_columned';
+			var net = this.model.get('net');
+			if(net == 'facebook') {
+				var net_type = this.model.get('net_type');
+				if(net_type == 'like_box_faces' || net_type == 'like_box') c = 'single_columned';
+			}
+			return "single_net " + c;
+		},
+		events:{
+			'mouseenter [data-pupload-fig]': 'changeremove',
+			'mouseleave [data-pupload-fig]': 'hidechangeremove',
+			'click [data-play-video]':'playvideo'
+		},
+
+		playvideo:function(evt) {
+			var v = this.model.get('video');
+			embed(v.video_id, '', v.full_url, v.type);
+			evt.preventDefault();
+		},
+
+		changeremove: function() {
+			$('.changeremove',this.$el).show();
+		},
+
+		hidechangeremove: function() {
+			$('.changeremove',this.$el).hide();
+		},
+
+		changeImg: function() {
+			$('#a-img-'+this.model.get('id')).trigger('click');
+		},
+
+		deleteImg: function() {
+			this.model.set({
+				image:null,
+				fullimage:null
+			});
+		},
+
+		deleteVideo: function() {
+			this.model.set({
+				video:null
+			});
+		},
+
+		fullrender: function(){
+			var changed = this.model.changedAttributes();
+
+			//If only the title has changed
+
+			if (_.size(changed) == 1 && changed.text != undefined) {
+				$('.net_description',this.$el).html(this.model.get('text'));
+				return;
+			}
+
+			this.render();
+		},
+
+		onShow:function() {
+
+			if (!this.model.get('client')) {
+				this.jsNets();
+			}
+
+		},
+
+		jsNets:function(){
+			var $el = $(this.el);
+			_.defer(function() {
+				var t = setTimeout(function() {
+					$('.fb-like-box',$el).attr('data-width',$el.width() + 15);
+					if(window.FB != undefined) {
+						FB.XFBML.parse($el[0], function() {
+							if(typeof(positionateContextualBox) == 'function') {
+								var z = setTimeout(function() { positionateContextualBox(false, null, true); }, 100);
+							}
+						});
+					}
+				}, 500);
+
+				/*twttr.ready(
+					function (twttr) {
+						twttr.widgets.load();
+					}
+				);*/
+
+				$.getScript('//apis.google.com/js/platform.js');
+
+			});
+		},
+
+		render:function() {
+			this.$el.html(EP.Handlebars.html('net-template',this.model.toJSON()));
+
+			//Change remove interface
+			this.cr = new ep.views.changeremove({model:this.model,parent:this});
+			$('.remove_img',this.$el).html(this.cr.el).hide();
+
+			//When done attach the pluploads
+			_.defer(function(){
+				this.onShow();
+			}.bind(this));
+
+			this.$el.removeClass().addClass(this.className());
+
+			return this;
+		}
+	});
+	ep.views.mynets = Backbone.View.extend({
+		initialize: function(options) {
+			this.collection = options.collection;
+		
+
+			// Ensure our methods keep the `this` reference to the view itself
+			_.bindAll(this, 'render');
+		
+
+			// Bind collection changes to re-rendering
+			// this.collection.bind('reset', this.render);
+			this.collection.bind('add', this.render);
+			this.itemViews = [];
+			// this.collection.bind('remove', this.render);
+			this.render();
+		},
+		
+
+		events:{
+		},
+
+		onShow: function() {
+			_.forEach(this.itemViews,function(v){
+				if (v.onShow) {
+					v.onShow();
+				}
+			});
+		},
+
+		render: function() {
+			//Render the hand with the cards
+			this.$el.html(EP.Handlebars.html('mynets-main-template',{}));
+			var element = $('#sections-list',this.$el);
+
+			var itemViews = this.itemViews;
+			// Go through the collection items
+			this.collection.forEach(function(item) {
+				var itemView = new EP.mynets.views.netSection({
+					model: item
+				});
+				element.append(itemView.el);
+				itemViews.push(itemView);
+			});
+			return this;
+		}
+	});
+
+	//View responsivle of handling the change and removal of the media
+	ep.views.changeremove = Backbone.View.extend({
+		tagName:'ul',
+		initialize: function(options) {
+			this.parent = options.parent;
+			this.render();
+		},
+
+		events:{
+			'click [data-change-img]':'changeimg',
+			'click [data-delete-img]':'deleteimg',
+			'click [data-delete-video]':'deletevideo',
+			'click [data-change-video]':'changevideo',
+		},
+
+		changeimg:function(evt){
+			this.parent.changeImg();
+			evt.preventDefault();
+		},
+
+		changevideo:function(evt){
+			this.openVideoPopup();
+			evt.preventDefault();
+		},
+
+		deleteimg :function(evt) {
+			this.parent.deleteImg();
+			evt.preventDefault();
+		},
+
+		deletevideo:function(evt) {
+			this.parent.deleteVideo();
+			evt.preventDefault();
+		},
+
+		openVideoPopup:function() {
+			$('#popupinsertion_'+this.model.get('id')).html(EP.Handlebars.html('addVideoContext-template',{} ));
+		},
+
+		render: function() {
+			this.$el.html(EP.Handlebars.html('remove-change-template',this.model.toJSON()));
+			return this;
+		}
+	});
+	ep.views.mynets_sidebar = Backbone.View.extend({
+		initialize: function(options) {
+			
+			this.collection = options.collection;
+			// Ensure our methods keep the `this` reference to the view itself
+			_.bindAll(this, 'render');
+		
+
+			// Bind collection changes to re-rendering
+			this.collection.bind('add', this.render);
+
+			//When adding a net to a section
+
+			this.collection.getCurrent().nets.bind('add',this.renderNets,this);
+			this.collection.getCurrent().nets.bind('remove',this.renderNets,this);
+			this.collection.getCurrent().nets.bind('folding',this.renderNets,this);
+			this.render();
+		},
+
+		events:{
+			//'click [data-save]' : 'savesection',
+			'click [data-add-net]' : 'addnet',
+			'click [data-edit]' : 'editnet',
+			'click [data-delete-net]' : 'deletenet',
+			'click [data-copy-net]' : 'copynet',
+			'mouseenter [data-toogle_add_answer_menu]' : 'show_add_menu',
+			'mouseleave [data-toogle_add_answer_menu]' : 'hide_add_menu',
+			'keyup .side_section input,textarea' : 'typing',
+			'change [data-net-type]' : 'changetype',
+			'click [data-twitter-setup]' : 'twittersetup',
+			'click [data-toggle-networks]' : 'togglenetworks',
+		},
+
+		//Allows user to disable my networks on the button
+		togglenetworks:function(evt){
+			var $e = $(evt.target);
+			var id = $e.data('toggle-networks');
+			var s = this.collection.getCurrent();
+			if (s.get('disable_networks') == undefined) {
+				s.set('disable_networks',true);
+			}
+			else
+				s.set('disable_networks',!s.get('disable_networks'));
+			evt.preventDefault();
+		},
+
+		//Saves a section
+		savesection:function(evt){
+			var current = this.collection.getCurrent();
+			var data = {id:this.collection.current,section:this.collection.getCurrent().toJSON()};
+			//Flat the nets
+
+			data.section.nets = this.collection.getCurrent().nets.toJSON();
+			data.nets_row = current.nets_row;
+			$.post('/promotions/saveNetSection/'+EP.mynets.config.promotion_id,data);
+			$(document).trigger('just-saved');
+			evt.preventDefault();
+		},
+
+		//Adds a network to the section
+		addnet:function(evt){
+			var $element = $(evt.target);
+			var data = $element.data('add-net');
+			var s = this.collection.getCurrent();
+			var net = {id:ep.config.promotion_id+Math.round(new Date().getTime()),net:data};
+			if (net.net == 'facebook') {
+				net.net_type = 'open_page';
+				net.target = ep.config.fb_page_id;
+			}
+			else if (net.net == 'twitter') {
+				net.target = 'easypromos';
+			}
+			s.nets.add(net);
+			FB.XFBML.parse();
+			/*twttr.ready(
+			  function (twttr) {
+			   twttr.widgets.load();
+			  }
+			);*/
+			evt.preventDefault();
+		},
+
+		editnet:function(evt) {
+			var $e = $(evt.target);
+			var id = $e.data('edit');
+			var s = this.collection.getCurrent();
+			//var item = s.nets.getById(id.id);
+			s.nets.forEach(function(n){
+				if (n.id == id) {
+					//Toggle current
+					n.set('selected',!n.get('selected'),{silent:true});
+				}
+				else{
+					n.set('selected',false,{silent:true});
+				}
+			});
+			this.collection.getCurrent().nets.trigger('folding');
+			evt.preventDefault();
+		},
+
+		changetype: function(evt) {
+			var $e = $(evt.target);
+			var id = $e.data('net-type');
+			var s = this.collection.getCurrent();
+			var item = s.nets.getById(id.id);
+			item.set('net_type',$e.val());
+			evt.preventDefault();
+		},
+
+		twittersetup: function(evt) {
+			var $e = $(evt.target);
+			var id = $e.data('twitter-setup');
+			var s = this.collection.getCurrent();
+			var item = s.nets.getById(id.id);
+			item.set(id.action,!item.get(id.action));
+			evt.preventDefault();
+		},
+
+		onShow: function() {
+			var collection = this.collection;
+			 $("#nets-sidebar").sortable({
+				items: "li.net",
+				handle: '.sorter_target',
+				cursor: 'move',
+				placeholder: "ui-state-highlight-custom",
+				start: function(event, ui) {
+					ui.placeholder.height(ui.item.height() - 35);
+				},
+				update: function(event, ui) {
+					collection.reorderNets($(this).sortable('toArray'));
+				}
+			});
+
+			$('.wysiwyg textarea',this.$el).each(function() {
+
+				if(!$(this).parent().hasClass('_alreadyMarkItUp')) $(this).markItUp(ep.wysettings);
+
+			});
+		},
+
+		//Deletes a net from the section
+		deletenet:function(evt){
+			var $element = $(evt.target);
+			var id = $element.data('delete-net');
+			var s = this.collection.getCurrent();
+			var item = s.nets.getById(id);
+			s.nets.remove(item);
+			evt.preventDefault();
+		},
+
+		//Copies a net from the section
+		copynet:function(evt) {
+			var $element = $(evt.target);
+			var id = $element.data('copy-net');
+			var s = this.collection.getCurrent();
+			var item = s.nets.getById(id).clone();
+			item.set('id',ep.config.promotion_id+Math.round(new Date().getTime()));
+			s.nets.add(item);
+			evt.preventDefault();
+		},
+
+		typing:function(evt) {
+			evt.preventDefault();
+			var $el = $(evt.target);
+			if($el.data('skip-update'))return;
+			var attr = $el.attr('name');
+
+			var target = $el.data('target');
+			var id = $el.data('id');
+			var value = $el.val();
+
+			//The fields that have a target of net get updated in the net zone
+			if (target == 'net'){
+				this.collection.getCurrent().nets.getById(id).set(attr,value);
+				this.collection.trigger('savePending');
+			}
+			else {
+
+				this.collection.getCurrent().set(attr,value);
+			}
+			evt.preventDefault();
+		},
+
+		show_add_menu : function(evt) {
+			$('.add_items').show();
+			evt.preventDefault();
+		},
+
+		hide_add_menu : function(evt) {
+			$('.add_items').hide();
+			evt.preventDefault();
+		},
+		renderNets : function() {
+			$('#nets-list',this.$el).html(EP.Handlebars.html('sidebar-nets-template',this.collection.getCurrent().nets.toJSON() ));
+
+			//For each net attach a media selector
+			var element = this.$el;
+			this.collection.getCurrent().nets.forEach(function(n){
+				var tpl = new EP.mynets.views.mediaselector({model:n,evt:'toggleNetLayout'});
+				$('#net-media-'+n.get('id'),element).html(tpl.el);
+			});
+
+			var collection = this.collection;
+			var self = this;
+			_.defer(function(){
+				$('.wysiwyg textarea',$('#quiz-sidebar-answers')).each(function() {
+					if(!$(this).parent().hasClass('_alreadyMarkItUp')) $(this).markItUp(mySettings);
+				});
+
+				$("#nets-sidebar").sortable({
+					items: "li.net",
+					handle: '.sorter_target',
+					cursor: 'move',
+					placeholder: "ui-state-highlight-custom",
+					start: function(event, ui) {
+						ui.placeholder.height(ui.item.height() - 35);
+					},
+					update: function(event, ui) {
+						collection.reorderNets($(this).sortable('toArray'));
+					}
+				});
+
+				addCustomTooltips();
+			});
+		},
+
+		render: function() {
+			var data = {
+				sections:this.collection.toJSON()
+			};
+			data.sections[this.collection.current].current = true;
+			//Render the sidebar
+			this.$el.html(EP.Handlebars.html('mynets-sidebar-template',data.sections[0]));
+			this.renderNets();
+
+			var element = $('#sections-list',this.$el);
+
+			var tpl = new EP.mynets.views.mediaselector({model:this.collection.getCurrent(),evt:'toggleSectionLayout'});
+			$('#quiz-question-media',this.$el).html(tpl.el);
+			var saveButton = new EP.views.savePending({model:this.collection});
+
+			//We need a save button
+			$('#save-placeholder',this.$el).html(saveButton.render().el);
+			return this;
+		}
+	})
+	ep.views.footer_sidebar = Backbone.View.extend({
+		initialize: function(options) {
+			this.model = options.model;
+			// Ensure our methods keep the `this` reference to the view itself
+			_.bindAll(this, 'render');
+
+			this.render();
+		},
+		
+
+		events:{
+			'click [data-save]' : 'savefooter',
+			'keyup .side_section input,textarea' : 'typing',
+
+			'change [data-net-type]' : 'changetype',
+			'click [data-twitter-setup]' : 'twittersetup'
+		},
+
+		//Saves a section
+		savefooter:function(evt){
+			evt.preventDefault();
+			var data = {id:'footer',info:this.model.toJSON()};
+			$.post('/promotions/saveConfig/'+EP.mynets.config.promotion_id,data);
+
+		},
+
+		onShow: function() {
+			$('.wysiwyg textarea').each(function() {
+
+				if(!$(this).parent().hasClass('_alreadyMarkItUp')) $(this).markItUp(ep.wyfooter);
+
+			});
+
+			var saveButton = new EP.views.savePending({model:this.model});
+			//We need a save button
+			$('#save-placeholder',this.$el).html(saveButton.render().el);
+
+		},
+		typing:function(evt) {
+			evt.preventDefault();
+			var $el = $(evt.target);
+			if($el.data('skip-update'))return;
+			var attr = $el.attr('name');
+
+			var target = $el.data('target');
+			var id = $el.data('id');
+			var value = $el.val();
+
+			this.model.set(attr,value);
+		},
+
+		render: function() {
+			//Render the sidebar
+			this.$el.html(EP.Handlebars.html('sidebar-footer-template',this.model.toJSON()));
+			return this;
+		}
+	})
+	ep.index = function(data) {
+		ep.config = data;
+		ep.mynets = new EP.mynets.models.mynets(ep.nets.sections);
+		ep.currentSection = ep.mynets.models[0];
+	}
+
+	ep.main = function(){
+
+		ep.wysettings = _.extend({},mySettings,{
+			afterInsert : function(h) {
+				var $e = $(h.textarea);
+				ep.mynets.getCurrent().set($e.attr('name'),$e.val())
+			}
+		});
+		var sidebarview = new ep.views.mynets_sidebar({collection:ep.mynets});
+		$('#side-section').html(sidebarview.el);
+
+		if (sidebarview.onShow) {
+			sidebarview.onShow();
+		}
+
+		var mainView = new ep.views.mynets({
+			collection:ep.mynets,
+		});
+
+		$('.thumbs_list').html(mainView.el);
+
+		ep.netEvents();
+	}
+
+	ep.footer = function(data){
+		ep.wyfooter = _.extend({},mySettings,{
+			afterInsert : function(h) {
+				var $e = $(h.textarea);
+				ep.currentFooter.set($e.attr('name'),$e.val())
+			}
+		});
+
+		var d = _.clone(pm.get('config').footer);
+		if(!d) {
+			d = {};
+			pm.get('config').footer = d;
+		}
+
+		d.powered = pm.get('powered');
+		var footer = new ep.models.footer(d);
+		ep.currentFooter = footer;
+
+		var sidebarview = new ep.views.footer_sidebar({model:footer});
+		$('#side-section').html(sidebarview.el);
+
+		if (sidebarview.onShow) {
+			sidebarview.onShow();
+		}
+
+		var mainView = new ep.views.mynets({
+			collection:ep.mynets,
+		});
+
+		_.defer(function(){
+			$('[data-toggleFooter]').on('click', function(evt){
+				var value = footer.get('display_footer')?0:1;
+				footer.set('display_footer',value);
+				var cfg = pm.get('config');
+				cfg.footer.display_footer = footer.get('display_footer');
+				//pm.set('config',cfg);
+			});
+		});
+		var footerView = new ep.views.footer({
+			model:footer
+		});
+
+		$('.thumbs_list').html(
+			footerView.el
+		);
+	}
+	ep.netEvents = function() {
+		var overiFrame = [];
+		var monitor = [];
+
+		if(window.eventsLoaded == undefined){
+			window.eventsLoaded = true;
+			/************
+			// This functionality has been deprecated by Facebook since Feb 8th 2018.
+			// Now it must be tracked by the "open_page" option (as "data-epinfo > a" object, like Instagram button):
+			fbEnsureInit(function() {
+				FB.Event.subscribe('edge.create', function(url, html) {
+					FB.api('/'+url, function(response) {
+						var page_id = response.id;
+						var $e = $(html);
+						var data = $e.data('epinfo');
+						$.post('/networks/click/' + ep.config.promotion_id, data);
+					});
+				});
+			});
+			 ************/
+
+			// FACEBOOK / INSTAGRAM BUTTON
+
+			
+			$(document).on('click', '[data-epinfo] > a', function(evt) {
+				var $p = $(event.target).parent();
+				if($p.hasClass('facebook_btn') || $p.hasClass('instagram_btn') || $p.hasClass('youtube_btn') || $p.hasClass('twitter_btn') || $p.hasClass('tiktok_btn') || $p.hasClass('twitch_btn') || $p.hasClass('linkedin_btn') || $p.hasClass('pinterest_btn')) {
+					var data = $p.data('epinfo');
+					$.post('/networks/click/' + ep.config.promotion_id, data);
+				}
+				
+			});
+
+			// TWITTER BUTTON
+			/*if(window.twttr!=undefined){
+				twttr.ready(
+					function(twttr) {
+						window.twttr.events.bind(
+							'follow',
+							function (event) {
+								var $p = $(event.target).parent();
+								var data = $p.data('epinfo');
+								$.post('/networks/click/' + ep.config.promotion_id, data);
+							}
+						);
+					}
+				);
+			}*/
+
+			// YOUTUBE BUTTON
+			$('[data-epinfo] > iframe.ytevent').each(function(i,item){
+				var iframe = $(this);
+				var data_ep =  $(iframe).closest('[data-epinfo]').data('epinfo');
+				overiFrame[i] = -1;
+				$(iframe).hover( function() {
+					overiFrame[i] = data_ep;
+				}, function() {
+					overiFrame[i] = -1
+				});
+
+				monitor[i] = setInterval(function() {
+					if(document.activeElement === document.getElementById('iframe_'+data_ep.id)) {
+						if(overiFrame[i] != -1) $.post('/networks/click/' + ep.config.promotion_id, overiFrame[i]);
+						clearInterval(monitor[i]);
+					}
+				}, 100);
+			});
+		}
+	}
+
+	/**
+	 * Initializes the  my networks for the client
+	 * @param  {[type]} data [description]
+	 * @return {[type]}      [description]
+	 */
+	ep.client = function(data) {
+		(function(d, s, id) {
+		  var js, fjs = d.getElementsByTagName(s)[0];
+		  if (d.getElementById(id)) return;
+		  js = d.createElement(s); js.id = id;
+		  js.src = "//connect.facebook.net/en_US/sdk.js#xfbml=1&appId=855717687776593&version=v2.0";
+		  fjs.parentNode.insertBefore(js, fjs);
+		}(document, 'script', 'facebook-jssdk'));
+
+		/*window.twttr = (function (d, s, id) {
+		  var t, js, fjs = d.getElementsByTagName(s)[0];
+		  if (d.getElementById(id)) return;
+		  js = d.createElement(s); js.id = id;
+		  js.src= "https://platform.twitter.com/widgets.js";
+		  fjs.parentNode.insertBefore(js, fjs);
+		  return window.twttr || (t = { _e: [], ready: function (f) { t._e.push(f) } });
+		}(document, "script", "twitter-wjs"));*/
+
+		this.nets = data.nets;
+		this.config = this.config || {};
+		this.config.promotion_id = data.promotion_id;
+
+
+		if (this.cbready != undefined) {
+			this.cbready();
+		}
+
+	}
+
+	/**
+	 * Displays the mynetworks
+	 * @param  {[type]} data [description]
+	 * @return {[type]}      [description]
+	 */
+	ep.display = function(data) {
+		ep.mynets = new EP.mynets.models.mynets(ep.nets.sections);
+		ep.currentSection = ep.mynets.models[0];
+		ep.currentSection.set('client',true);
+		_.each(ep.currentSection.nets.models,function(n){
+			n.set('client',true);
+		});
+		var section = new ep.views.netSection({model:ep.currentSection});
+		this.section = section;
+		data.placeholder.html(section.el);
+		var title = ep.currentSection.get('text');
+		if (title == '') title=data.data.defaultTitle;
+		data.title.html(title);
+
+		if (!ep.eventsready) {
+			ep.netEvents();
+			ep.eventsready = true;
+		}
+
+	}
+
+	ep.netsSetup = function() {
+		_.each(section.netsviews.views,function(n){
+			n.jsNets();
+		});
+	}
+
+	ep.netsSetup_ = function(data) {
+		if(typeof(data.display_footer_buttons) != "undefined" && data.display_footer_buttons == 1) {
+			$('.cb_footer_buttons .continue_button').addClass('em_disabled');
+			var t = setTimeout(function() { $('.cb_footer_buttons .continue_button').removeClass('em_disabled'); }, 3000);
+		}
+		ep.netsSetup();
+	}
+
+	return ep;
+
+})();

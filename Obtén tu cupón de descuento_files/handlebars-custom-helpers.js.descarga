@@ -1,0 +1,746 @@
+function checkHideText(item,type) {
+	return false;
+	if (type == "qtype") return true;
+	if (item.config != undefined && type != "layout" && item.config.type != "closed_text") return false;
+	if (item.image != null || (item.video != null && item.video != '')) {
+		return false
+	}
+	return true;
+}
+
+Number.prototype.pad = function(size) {
+  var s = String(this);
+  while (s.length < (size || 2)) {s = "0" + s;}
+  return s;
+}
+
+Handlebars.registerHelper('arrayValue', function(array, index,options) {
+
+	var tmp = array[index];
+	if (tmp == undefined) {
+		return '';
+	}
+   return new Handlebars.SafeString(tmp);
+});
+
+
+Handlebars.registerHelper('qrcode', function(ptype,prize,options) {
+	if (ptype[prize.prize_type].type == '3') return options.fn(this);;
+});
+
+Handlebars.registerHelper('ifcmp', function(v1, v2, options) {
+	//console.log(v1,v2);
+	if(v1 === v2) return options.fn(this);
+	return options.inverse(this);
+});
+
+Handlebars.registerHelper('ifregexp', function(v1, v2, options) {
+	var r = new RegExp(v2);
+
+	if(r.test(v1)) return options.fn(this);
+	return options.inverse(this);
+});
+
+
+Handlebars.registerHelper('unlesscmp', function(v1, v2, options) {
+	if(v1 !== v2) return options.fn(this);
+	return options.inverse(this);
+});
+Handlebars.registerHelper('selected', function(option, value) {
+	return (option === value) ? ' selected' : '';
+});
+Handlebars.registerHelper('selected_no_stict', function(option, value) {
+	return (option == value) ? ' selected' : '';
+});
+
+Handlebars.registerHelper('NSval', function(object, key, value) {
+	return object[key][value];
+});
+
+/**
+ * Makes a loop going for max to min
+
+ * @param  {int} max      max value
+ * @param  {int} min      min value
+ * @return {string}       the iteration
+ */
+Handlebars.registerHelper('forDesc', function(max,min, options) {
+	var tmp = '';
+	if (min == '') min = options.hash.min_default;
+	if (max == '') max = options.hash.max_default;
+
+	for (var i = max; i >= min; i--)	{
+		tmp += options.fn(i);
+	}
+	return new Handlebars.SafeString(tmp);
+});
+
+Handlebars.registerHelper('displayNotZero', function(item, options) {
+	if (item > 0) {
+		return options.fn(this);
+	}
+	return options.inverse(this);
+});
+
+Handlebars.registerHelper('displayNotEmpty', function(obj, options) {
+	if (_.size(obj) > 0) {
+		return options.fn(this);
+	}
+	return options.inverse(this);
+});
+
+Handlebars.registerHelper('ifCnd', function (v1, operator, v2, options) {
+	switch (operator) {
+		case '==':
+			return (v1 == v2) ? options.fn(this) : options.inverse(this);
+		case '===':
+			return (v1 === v2) ? options.fn(this) : options.inverse(this);
+		case '<':
+			return (v1 < v2) ? options.fn(this) : options.inverse(this);
+		case '<=':
+			return (v1 <= v2) ? options.fn(this) : options.inverse(this);
+		case '>':
+			return (v1 > v2) ? options.fn(this) : options.inverse(this);
+		case '>=':
+			return (v1 >= v2) ? options.fn(this) : options.inverse(this);
+		case '&&':
+			return (v1 && v2) ? options.fn(this) : options.inverse(this);
+		case '||':
+			return (v1 || v2) ? options.fn(this) : options.inverse(this);
+		case '!=':
+			return (v1 != v2) ? options.fn(this) : options.inverse(this);
+		default:
+			return options.inverse(this);
+	}
+});
+
+Handlebars.registerHelper('length', function(collection) {
+	if( collection.length ) return collection.length;
+	var length = 0;
+	for( var prop in collection ){
+		if( collection.hasOwnProperty( prop ) ){
+			length++;
+		}
+	}
+	return length;
+});
+
+Handlebars.registerHelper('lines', function(collection) {
+	return collection != undefined && collection[0] ? collection[0].split("\n").length : 0;
+});
+
+Handlebars.registerHelper('icon', function(type, options) {
+	var tmp = type;
+
+	switch(type) {
+		case 'closed_text':
+			tmp = 'button';
+			break;
+		case 'open_text':
+			tmp = 'open-text';
+			break;
+		case 'list':
+			tmp = 'options-list';
+			break;
+		case 'Facebook':
+			tmp = 'facebook';
+			break;
+		case 'Twitter':
+			tmp = 'twitter';
+			break;
+	}
+	return new Handlebars.SafeString(tmp);
+});
+
+Handlebars.registerHelper('avatar', function(User, options) {
+	if(window.display_promotion_avatars != undefined && !window.display_promotion_avatars) return;
+
+	var linkable = (options.hash.linked) ? options.hash.linked : false;
+	var link_href = (options.hash.link_href) ? options.hash.link_href : false;
+	var link_target = (options.hash.link_target) ? options.hash.link_target : '_new';
+	var width = (options.hash.width) ? parseInt(options.hash.width) : 30;
+	var height = (options.hash.height) ? parseInt(options.hash.height) : 30;
+	var name = (options.hash.name) ? options.hash.name : false;
+	var class_arr = [];
+
+	var avatar_url = false;
+	if(User != undefined && User.fbuid != '' && User.fbuid != '0' && User.fbuid != null && User.fbuid != undefined && (User.net_type != undefined && User.net_type != '2' && User.net_type != '4') && (User.type == 'facebook' || User.password != undefined)) {
+		if(linkable && !link_href) link_href = 'https://www.facebook.com/'+User.fbuid;
+		avatar_url = 'https://graph.facebook.com/'+User.fbuid+'/picture?width='+(width*2)+'&amp;height='+(height*2);
+		class_arr = ['gui_avatar', 'gui_circled_avatar', 'gui_shadowed'];
+	} else if(User != undefined && User.username != '') {
+		if(User.avatar!=undefined) {
+			//From sweeps
+			class_arr = ['gui_avatar', 'gui_circled_avatar', 'gui_shadowed'];
+
+			avatar_url = User.avatar;
+
+			switch(User.type) {
+				case 'twitter':
+					avatar_url = User.avatar != '' ? User.avatar : 'https://twitter.com/'+User.username+'/profile_image';
+					if(linkable && !link_href) link_href = 'https://www.twitter.com/'+User.username;
+					break;
+				case 'instagram':
+					return;
+					avatar_url = User.avatar!='' ? User.avatar : '';
+					if(linkable && !link_href) link_href = 'https://www.instagram.com/'+User.username;
+					break;
+				case 'youtube':
+					avatar_url = User.avatar != '' ? User.avatar : 'https://i.ytimg.com/i/'+User.fbuid+'/1.jpg';
+					if(linkable && !link_href) link_href = 'https://www.youtube.com/channel/'+User.fbuid;
+					break;
+			}
+		} else if(User.hashtag_user != '' && User.hashtag_user != null) {
+			class_arr = ['gui_avatar', 'gui_circled_avatar', 'gui_shadowed'];
+			avatar_url = User.hashtag_avatar;
+			switch(User.hashtag_type) {
+				case '1':
+					if(linkable && !link_href) link_href = 'https://www.twitter.com/'+User.hashtag_user;
+					break;
+				case '2':
+					return;
+					if(linkable && !link_href) link_href = 'https://www.instagram.com/'+User.hashtag_user;
+					break;
+			}
+		}
+	} else {
+		linkable = false;
+		class_arr.push('generic_user profileThumb gui_empty_avatar hb_mainColorBg');
+	}
+
+	if(avatar_url) {
+		var avatar = '<img src="'+avatar_url+'" width="'+width+'" height="'+height+'" alt="'+User.username+'" />';
+	} else {
+		return;
+		var avatar = '<img src="/css/img/empty_user.jpg" width="'+width+'" height="'+height+'" alt="" />';
+	}
+
+	if(name && User.name != undefined) {
+		avatar += ' ' + User.name;
+	}
+	if(linkable) {
+		var out = '<a class="'+class_arr.join(" ")+'" href="'+link_href+'" target="'+link_target+'" style="width:'+width+'px; height:'+height+'px;">'+avatar+'</a>';
+	} else {
+		var out = '<span class="'+class_arr.join(" ")+'">'+avatar+'</span>';
+	}
+
+	return out;
+});
+Handlebars.registerHelper('EPusername', function(User, options) {
+	var only_firstname = (options.hash.only_firstname) ? options.hash.only_firstname : false;
+	var link_href = (options.hash.link_href) ? options.hash.link_href : false;
+	var linkable = (options.hash.linked && link_href) ? options.hash.linked : false;
+	var link_target = (options.hash.link_target) ? options.hash.link_target : '_new';
+	var with_icon = (typeof(options.hash.with_icon) != "undefined") ? options.hash.with_icon : true;
+	var class_arr = ['username'];
+
+	var username = (User.name != '') ? User.name : false;
+	if(!username && typeof(User.first_name) != "undefined" && User.first_name != '' && User.last_name != '') {
+		username = User.first_name!='' && User.first_name != null ? User.first_name+" " : "";
+		if(!only_firstname){
+			username += User.last_name!='' && User.last_name != null ? User.last_name : "";
+		}
+	}
+	if(username == "") username = "Generic user";
+
+	var type = 'mail_user';
+	if(User.hashtag_user != '' && User.hashtag_user != null) {
+		switch(User.hashtag_type) {
+			case '1':
+				type = 'twitter_user';
+				break;
+			case '2':
+				type = 'instagram_user';
+				break;
+		}
+	} else if(User.net_type != undefined && User.net_type == '2') {
+		type = 'google_user';
+	} else if(User.net_type != undefined && User.net_type == '4') {
+		type = 'external';
+	} else if(User.fbuid != '' && User.fbuid != '0' && User.fbuid != 0  && User.fbuid != null) {
+		if(username == undefined) username = '<fb:name uid="'+User.fbuid+'" firstnameonly="'+((only_firstname) ? 'true' : 'false')+'" linked="false" useyou="false"></fb:name>';
+		type = 'facebook_user';
+	}
+
+	var _link_usernames = (window.link_usernames == undefined && window.link_usernames) ? true : false;
+
+	linkable = false;
+	switch(type) {
+		case 'google_user':
+			if(with_icon) class_arr.push('ep-google');
+			linkable = false;
+			break;
+		case 'facebook_user':
+			if(with_icon) class_arr.push('ep-facebook');
+			if(linkable && !link_href && _link_usernames) link_href = 'https://www.facebook.com/'+User.fbuid;	// FB_AVATAR_REMOVAL
+			break;
+		case 'twitter_user':
+			if(with_icon) class_arr.push('ep-twitter');
+			username = '@'+User.hashtag_user;
+			if(linkable && !link_href && _link_usernames) link_href = 'https://www.twitter.com/'+User.hashtag_user;	// FB_AVATAR_REMOVAL
+			break;
+		case 'instagram_user':
+			if(with_icon) class_arr.push('ep-instagram-square');
+			username = '@'+User.hashtag_user;
+			if(linkable && !link_href && _link_usernames) link_href = 'https://www.instagram.com/'+User.hashtag_user;	// FB_AVATAR_REMOVAL
+			break;
+		case 'youtube_user':
+			if(with_icon) class_arr.push('ep-youtube');
+			username = '@'+User.page_id;
+			if(linkable && !link_href && _link_usernames) link_href = 'https://www.youtube.com/channel/'+User.page_id;	// FB_AVATAR_REMOVAL
+			break;
+		case 'external':
+			if(with_icon) class_arr.push('');
+			break;
+		case 'mail_user':
+		default:
+			if(with_icon && username!="") class_arr.push('ep-mail');
+			break
+	}
+	if(options != undefined && linkable) {
+		var out = '<a class="'+class_arr.join(" ")+'" href="'+link_href+'" target="'+link_target+'">'+username+'</a>';
+	} else {
+		var out = '<a class="fake_link '+class_arr.join(" ")+'">'+username+'</a>';
+	}
+	return out;
+});
+/**
+ * If the answer does not have media and it's a closed text we should'nt allow to hide the text
+ * @return {[string]}  disabledItem class or empty string
+ */
+Handlebars.registerHelper("initials", function(string) {
+	var result = '';
+	if(string!=null){
+		var array = string.split(' ');
+		for(var i=0; i<array.length;i++){
+			result += array[i].charAt(0);
+			if(i==1)break;
+		}
+	}
+
+	return result;
+});
+
+Handlebars.registerHelper("allowHideText", function(item,type) {
+	return checkHideText(item,type)?'disabledItem':'';
+});
+
+Handlebars.registerHelper("allowHideTextMask", function(item,type) {
+	return checkHideText(item,type)?new Handlebars.SafeString('<div class="disabled_overlay"></div>'):'';
+});
+
+Handlebars.registerHelper("addon_warning", function(promotion, addon_enabled, options) {
+	if (promotion == undefined )return options.inverse(this);
+	if(promotion.promo_type == '0') {
+		if(promotion.status == '0' || !addon_enabled) {
+			return options.fn(this);
+		}
+	}
+	return options.inverse(this);
+});
+
+Handlebars.registerHelper('newline', function(str, options) {
+	if (!str)return str;
+	//if (typeof str === 'object') return str;
+
+	if (str.constructor === Array) {
+		return  new Handlebars.SafeString(str.join('<br/>'));
+	}
+
+	if (typeof str === 'object') return str;
+
+	var rep = str.replace(/(li>|<ol>|<ul>)\s*\n/g,"$1");
+	if(options.hash.noHTML) {
+		rep = str.replace(/>/g,"&gt;");
+		rep = str.replace(/</g,"&lt;");
+	}
+	rep = rep.replace(/\n/g,'<br/>');
+	return new Handlebars.SafeString(rep);
+});
+
+Handlebars.registerHelper('newline_p', function(str, options) {
+	if (!str)return str;
+	var rep = str.replace(/(li>|<ol>|<ul>)\s*\n/g,"$1");
+		rep = rep.replace(/\n/g,'</p><p>');
+	return new Handlebars.SafeString(rep);
+});
+Handlebars.registerHelper('flexfield', function(field,value,opts,options) {
+	var input = '<div class="input text"><label for="'+field+'">'+field+'</label><input name="'+field+'" value="'+value+'" placeholder="'+value+'" /></div>';
+	var ff = input;
+	return new Handlebars.SafeString(ff);
+});
+Handlebars.registerHelper("counter", function (index,initial){
+	if (initial == undefined) initial = 0;
+	if (index == undefined) index = 0;
+	return initial + index + 1;
+});
+
+Handlebars.registerHelper("len", function(json) {
+	return Object.keys(json).length;
+});
+
+Handlebars.registerHelper('sum', function() {
+	var sum = 0, v;
+	for (var i=0; i<arguments.length; i++) {
+		v = parseFloat(arguments[i]);
+		if (!isNaN(v)) sum += v;
+	}
+	return sum;
+});
+
+Handlebars.registerHelper('isNumeric', function(num,options) {
+	if(Number(num)) return options.fn(this);
+	return options.inverse(this);
+});
+
+/**
+ * Generate a random number between two values
+ *
+ * @param  {Number} `min`
+ * @param  {Number} `max`
+ * @return {String}
+ * @api public
+ */
+
+Handlebars.registerHelper("random", function(min,max) {
+	return Math.floor(Math.random() * (max - min + 1)) + min;
+});
+
+
+Handlebars.registerHelper('condition', function (v1, operator, v2, options) {
+	switch (operator) {
+		case '==':
+			return (v1 == v2) ? options.fn(this) : options.inverse(this);
+		case '===':
+			return (v1 === v2) ? options.fn(this) : options.inverse(this);
+		case '<':
+			return (v1 < v2) ? options.fn(this) : options.inverse(this);
+		case '<=':
+			return (v1 <= v2) ? options.fn(this) : options.inverse(this);
+		case '>':
+			return (v1 > v2) ? options.fn(this) : options.inverse(this);
+		case '>=':
+			return (v1 >= v2) ? options.fn(this) : options.inverse(this);
+		case '&&':
+			return (v1 && v2) ? options.fn(this) : options.inverse(this);
+		case '||':
+			return (v1 || v2) ? options.fn(this) : options.inverse(this);
+		case '!=':
+			return (v1 != v2) ? options.fn(this) : options.inverse(this);
+		default:
+			return options.inverse(this);
+	}
+});
+
+Handlebars.registerHelper('tooltip', function(type, options) {
+	var msg = options.fn().replace('"', '&quot;');
+	var link_href = (options.hash.href) ? options.hash.href : '';
+	var link_target = (options.hash.target) ? options.hash.target : '_new';
+	var class_arr = ['is_tooltip'];
+	if(options.hash.class) class_arr.push(options.hash.class);
+	var linkable = false;
+	if(link_href != '') {
+		linkable = true;
+		class_arr.push('linkable');
+	}
+	switch(type) {
+		case 'error':
+			class_arr.push('knk-alert-ui');
+			if(linkable) class_arr.push('redIcon');
+			break;
+		case 'help':
+		default:
+			class_arr.push('knk-help-ui');
+			if(linkable) class_arr.push('blueIcon');
+			break
+	}
+	if(linkable) {
+		var out = '<a class="'+class_arr.join(" ")+'" href="'+link_href+'" target="'+link_target+'" title="'+msg+'"></a>';
+	} else {
+		var out = '<span class="'+class_arr.join(" ")+'" title="'+msg+'"></span>';
+	}
+	return out;
+});
+
+Handlebars.registerHelper('form_checkbox', function(field, checked, options) {
+	var data = '';
+	if(options.hash.data) {
+		var d = JSON.parse(options.hash.data);
+		data = ' data-'+d.name+'=\''+d.value+'\'';
+	}
+
+	var is_checked = (checked >= '1') ? ' checked="checked"' : '';
+	var out = '<input id="'+field+'" type="checkbox" data-checkbox=\'{"name":"'+field+'"}\' name="'+field+'"'+is_checked+data+'/>';
+
+	return new Handlebars.SafeString(out);
+});
+
+Handlebars.registerHelper('form_select', function(field, selected, options) {
+	var list = options.fn();
+	list = list.trim().split('||');
+
+	var out = '<select id="'+field+'" type="text" name="'+field+'">';
+	for(var i in list) {
+		var item = list[i].trim().split('::');
+		var is_selected = (item[0] == selected) ? ' selected="selected"' : '';
+		out += '<option value="'+item[0]+'"'+is_selected+'>'+item[1]+'</option>';
+	}
+	out += '</select>';
+
+	return new Handlebars.SafeString(out);
+});
+
+Handlebars.registerHelper('form_input_text', function(field, value, max_length, placeholder, options) {
+	if(value == null || value == 'undefined') value = '';
+	if(max_length != null && typeof(max_length) == "number") {
+		var maxlength = ' maxlength="'+max_length+'"';
+		var counter = '<div id="'+field+'_cc" class="gui_charcounter">'+max_length+'</div>';
+	} else {
+		var maxlength = '';
+		var counter = '';
+	}
+	var placeholder = (placeholder != null && typeof(placeholder) == "string") ? ' placeholder="'+placeholder+'"' : '';
+	var val = (typeof(value) == "string") ? value.replace(/\"/g,'&quot;'):value;
+	var out = '<input id="'+field+'" type="text" name="'+field+'" value="'+val+'"'+maxlength+placeholder+'/>'+counter;
+	return new Handlebars.SafeString(out);
+});
+
+Handlebars.registerHelper('form_textarea', function(field, value, max_length, options) {
+	if(max_length != null && typeof(max_length) == "number") {
+		var maxlength = ' maxlength="'+max_length+'"';
+		var counter = '<div id="'+field+'_cc" class="gui_charcounter">'+max_length+'</div>';
+	} else {
+		var maxlength = '';
+		var counter = '';
+	}
+	if(value == null || value == 'undefined') value = '';
+	var out = '<textarea id="'+field+'" name="'+field+'"'+maxlength+'>'+value+'</textarea>'+counter;
+
+	return new Handlebars.SafeString(out);
+});
+
+Handlebars.registerHelper('replace', function (needle, a, b, options) {
+	var contains = false;
+
+	if (needle && typeof needle === 'string') {
+		if (!a || typeof a !== 'string') return needle;
+		if (!b || typeof b !== 'string') b = '';
+		return needle.split(a).join(b);
+	}
+});
+
+Handlebars.registerHelper('HBprintf', function(text, options) {
+	return text.replace('%s',options.fn(this));
+});
+
+Handlebars.registerHelper('ifIn', function(elem, list, options) {
+  if(list.indexOf(elem) > -1) {
+    return options.fn(this);
+  }
+  return options.inverse(this);
+});
+
+Handlebars.registerHelper('alignClasses', function(_class, options) {
+	var classes = [];
+	var v_align = _class.substr(0, 1);
+	switch(v_align) {
+		case 't':
+			classes.push('is_top');
+			break;
+		case 'c':
+		default:
+			classes.push('is_middle');
+			break;
+		case 'b':
+			classes.push('is_bottom');
+			break;
+	}
+
+	var h_align = _class.substr(1, 1);
+	switch(h_align) {
+		case 'l':
+			classes.push('is_left');
+			break;
+		case 'c':
+		default:
+			classes.push('is_center');
+			break;
+		case 'r':
+			classes.push('is_right');
+			break;
+	}
+	return classes.join(' ');
+});
+
+Handlebars.registerHelper('emulateTimer', function(_time, options) {
+	var hours = Math.floor(_time / 60);
+	var mins = _time - 60 * hours;
+
+	var hours_str = hours + '';
+	var mins_str = mins + '';
+	hours_str = (hours_str.length < 2) ? '0' + hours_str : hours_str;
+	mins_str = (mins_str.length < 2) ? '0' + mins_str : mins_str;
+	var secs_str = '00';
+
+	return hours_str + ':' + mins_str + ':' + secs_str;
+});
+
+
+Handlebars.registerHelper('classFormatHour', function(date,format) {
+	var hour = moment(date).format('HH');
+	var classe = ''
+	if(format == '24'){
+		classe = 'knk-time';
+	}else if(format == '12'){
+		if(parseInt(hour)>12) classe = 'knk-pm';
+		else classe = 'knk-am';
+	}
+	return new Handlebars.SafeString(classe)
+});
+
+Handlebars.registerHelper('selectHours', function(name,classes,format,date) {
+	var hour = moment(date).format('HH');
+	var str = '<select id="'+name+'_hour" name="'+name+'" class="'+classes+'" data-change_date=\'{ "field":"'+name+'","type":"'+format+'"}\'>';
+	var type_hours = format!='24' ? 'AmPm' : '24h';
+	if(type_hours=='24h'){
+		for(var i = 0;i<24;i++){
+			var selected = i.pad(2) == hour ? ' selected="selected"' :''
+			str+='<option value="'+i.pad(2)+'"'+selected+'>'+i.pad(2)+'</option>';
+		}
+	}else if(type_hours=='AmPm'){
+		str += '<optgroup label="AM">';
+		for(var i = 0;i<12;i++){
+			var selected = i.pad(2) == hour ? ' selected="selected"' :''
+			str+='<option value="'+i.pad(2)+'"'+selected+'>'+i.pad(2)+'</option>';
+		}
+		str += '</optgroup>';
+		str += '<optgroup label="PM">';
+		for(var i = 12;i<24;i++){
+			var selected = i.pad(2) == hour ? ' selected="selected"' :''
+			str+='<option value="'+i.pad(2)+'"'+selected+'>'+(i-12).pad(2)+'</option>';
+		}
+		str += '</optgroup>';
+	}
+	str += '</select>';
+	return new Handlebars.SafeString(str)
+});
+
+Handlebars.registerHelper('selectMins', function(name,classes,date) {
+	var mins = moment(date).format('mm');
+
+	var str = '<select id="'+name+'_mins" name="'+name+'" class="'+classes+'" data-change_date=\'{ "field":"'+name+'" }\'>';
+
+	for(var i = 0;i<60;i++){
+		var selected = i.pad(2) == mins ? ' selected="selected"' :''
+		str+='<option value="'+i.pad(2)+'"'+selected+'>'+i.pad(2)+'</option>';	
+	}
+
+	str += '</select>';
+	return new Handlebars.SafeString(str)
+});
+
+Handlebars.registerHelper('priceInCurrency', function(price,currency,options) {
+	var str = price + ' ' + currency;
+	if(currency == 'USD') str = '$' + str;
+	return new Handlebars.SafeString(str)
+});
+
+Handlebars.registerHelper('wrapHashtagMention', function(str) {
+	//str = Handlebars.Utils.escapeExpression(str);
+	// var matches = str.match(/(#[a-z0-9][a-z0-9\-_]*)/ig);
+	var matches = str.match(/(\S*#\[[^\]]+\])|(\S*#[a-zA-ZñÑçÇ0-9_]+)|(\S*@[a-zA-ZñÑçÇ0-9_]+)/gi);
+	if(matches) {
+		var wrapped = matches.map(function(v, i, a) { return '<span class="social_link">' + v + '</span>'; });
+		for(var i = 0; i < matches.length; i++) str = str.replace(matches[i], wrapped[i]);
+	}
+	return new Handlebars.SafeString(str)
+});
+
+
+
+
+Handlebars.registerHelper('wrapHashtag', function(str) {
+	//str = Handlebars.Utils.escapeExpression(str);
+
+	// var matches = str.match(/(#[a-z0-9][a-z0-9\-_]*)/ig);
+	var matches = str.match(/(\S*#\[[^\]]+\])|(\S*#\S+)/gi);
+	if(matches) {
+		var wrapped = matches.map(function(v, i, a) { return '<a href="#" data-hashtag-link=\'{"hashtag":"' + v.toLowerCase().replace('#', '') + '"}\'>' + v + '</a>'; });
+		for(var i = 0; i < matches.length; i++) { str = str.replace(matches[i], wrapped[i]); }
+	}
+
+	return new Handlebars.SafeString(str)
+});
+
+Handlebars.registerHelper("math", function(lvalue, operator, rvalue, options) {
+	lvalue = parseFloat(lvalue);
+	rvalue = parseFloat(rvalue);
+
+	return {
+		"+": lvalue + rvalue,
+		"-": lvalue - rvalue,
+		"*": lvalue * rvalue,
+		"/": lvalue / rvalue,
+		"%": lvalue % rvalue
+	}[operator];
+});
+
+Handlebars.registerHelper('formatDate', function (date, format) {
+	var mmnt = moment(date);
+	return mmnt.format(format);
+});
+
+
+Handlebars.registerHelper('prizeCode', function (prize,codes,options) {
+	var str ="";
+	//console.log(prize,codes)
+
+	//Find the code
+	for (var i in codes) {
+		if (codes[i].id == prize.code_id) {
+			str += 'Code: <strong>'+codes[i].code+'</strong>';
+			break;
+		}
+	}
+
+	return new Handlebars.SafeString(str)
+});
+
+Handlebars.registerHelper('prizeAssignation', function(prize, prizes) {
+	var str ="";
+
+	if(prizes[prize.prize_type] == undefined) return new Handlebars.SafeString("");
+
+	switch(prizes[prize.prize_type].assignation) {
+		case '1':
+			str = "knk-me";
+			break;
+		case '2':
+			str = "knk-ball-drum";
+			break;
+		case '3':
+			str = "knk-add-user";
+			break;
+		case '4':
+			str = "knk-timecounter";
+			break;
+		default:
+			str = 'knk-promotional-code';
+			break;
+
+	}
+
+	return new Handlebars.SafeString(str)
+});
+
+
+Handlebars.registerHelper('times', function(n, block) {
+	var accum = '';
+	for(var i = 0; i < n; ++i) {
+		block.data.index = i;
+		block.data.first = i === 0;
+		block.data.last = i === (n - 1);
+		accum += block.fn(this);
+	}
+	return accum;
+});

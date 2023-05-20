@@ -1,0 +1,183 @@
+@charset "UTF-8";
+
+[class^="ep-"]::before,
+[class*=" ep-"]::before,
+.netButton::before,
+.is_addon a::after,
+.is_addon_this::after,
+.react_field .search .this_input::after,
+.gui_quiz_public_stats .question_block::after,
+.gui_instagram_gallery .gui_ig_gallery > .is_video::before,
+.prettify_it .is_select::before,
+.prettify_it .is_select::after,
+.gui_status_view > * .status::before,
+.gui_checked_list:not(.gui_custom_icons) > li:not(.not_listed)::before {
+	font-family:"ep-icons" !important;
+	font-style:normal !important;
+	font-weight:400;
+	font-variant:normal !important;
+	text-transform:none !important;
+	speak:none;
+	line-height:1em;
+	font-size:1.7em;
+	margin-inline-end:0.3em;
+	width:1em;
+	height:0.9em;
+	float:left;
+	position:relative;
+	top:0;
+}
+
+.is_addon {
+	position:relative;
+}
+
+.is_addon a::after {
+	font-size:15pt;
+	top:9px;
+	right:0;
+	position:absolute;
+}
+
+.is_addon_this::after {
+	font-size:15pt;
+	top:3px;
+	left:5px;
+	float:none;
+}
+
+.ep-add-circle::before {
+	transform:rotate(45deg) !important;
+}
+
+/** CHARSET INI **/
+/** INI SECTION Generic icons **/
+.ep-tiled-gallery::before { content:"\41"; }
+.ep-list-gallery::before { content:"\4a"; }
+.ep-thumbs-up-empty::before { content:"\6c"; }
+.ep-thumbs-down-empty::before { content:"\64"; }
+.ep-thumbs-up::before { content:"\4c"; }
+.ep-thumbs-down::before { content:"\44"; }
+.ep-print::before { content:"\65"; }
+.ep-search::before, .react_field .search .this_input::after { content:"\46"; }
+.ep-share::before { content:"\67"; }
+.ep-circle::before { content:"\43"; }
+.ep-circle-empty::before { content:"\63"; }
+.ep-heart::before { content:"\48"; }
+.ep-heart-empty::before { content:"\68"; }
+.ep-cut::before { content:"\69"; }
+.ep-exit::before { content:"\49"; }
+.ep-home::before { content:"\6a"; }
+.ep-pdf::before { content:"\e00d"; }
+.ep-download::before { content:"\6b"; }
+.ep-send::before { content:"\6d"; }
+.ep-comment::before { content:"\6e"; }
+.ep-invite::before { content:"\6f"; }
+.ep-audio::before { content:"\e007"; }
+.ep-video::before { content:"\e008"; }
+.ep-mail-square::before, .is_mail .netButton::before { content:"\4f"; }
+.ep-play::before, .ep-play-round::before, .gui_instagram_gallery .gui_ig_gallery > .is_video::before { content:"\70"; }
+.ep-toc::before { content:"\71"; }
+.ep-time::before { content:"\54"; }
+.ep-user::before { content:"\75"; }
+.ep-upload::before { content:"\55"; }
+.ep-star::before, .ep-networks::before, .ep-addon::before, .is_addon a::after, .is_addon_this::after { content:"\53"; }
+.ep-star-empty::before { content:"\73"; }
+.ep-winners::before { content:"\57"; }
+.ep-ok::before, .ep-on::before, .gui_status_view > .is_ok .status::before { content:"\56"; }
+.ep-delete::before, .ep-close::before, .gui_status_view > .is_ko .status::before { content:"\58"; }
+.ep-check-list-item::before, .gui_checked_list:not(.gui_custom_icons) > li:not(.not_listed)::before { content:"\59"; }
+.ep-delete-circle::before, .ep-add-circle::before { content:"\78"; }
+.ep-entries::before { content:"\79"; }
+.ep-voteme::before { content:"\7a"; }
+.ep-retweet::before { content:"\5a"; }
+.ep-fullscreen::before { content:"\30"; }
+.ep-stats::before { content:"\34"; }
+.ep-localization::before { content:"\36"; }
+.ep-zoom-in::before { content:"\e6"; }
+.ep-zoom-out::before { content:"\f8"; }
+.ep-exclamation::before { content:"\21"; }
+.ep-sided-menu::before { content:"\3d"; }
+.ep-sided-menu-opened::before { content:"\e013"; }
+.ep-prev::before { content:"\3c"; }
+.ep-next::before { content:"\3e"; }
+.ep-up::before, .prettify_it .is_select::before { content:"\33" !important; }
+.ep-down::before, .prettify_it .is_select::after { content:"\32" !important; }
+.ep-mail::before { content:"\40"; }
+.ep-waiting::before { content:"\35"; }
+.ep-camera::before { content:"\23"; }
+.ep-more-options-h::before, .gui_quiz_public_stats .question_block::after { content:"\24"; }
+.ep-more-options-v::before, .ep-in-app-browser::before { content:"\25"; }
+.ep-autologin::before { content:"\7b"; }
+.ep-sound-on::before { content:"\e010"; }
+.ep-sound-off::before { content:"\e011"; }
+.ep-phone:before { content:"\e012"; }
+/** END SECTION Generic icons **/
+
+/** INI SECTION Logos / Social **/
+.ep-easypromos-logo::before, .ep-easypromos-logo-new::before { content:"\e00e"; }
+.ep-vimeo::before, .is_vimeo .netButton::before { content:"\45"; }
+.ep-facebook-round::before, .ep-facebook::before, .is_facebook .netButton::before { content:"\27"; }
+.ep-facebook-f::before { content:"\4b"; }
+.ep-facebook-live::before { content:"\f1"; }
+.ep-instagram::before, .is_instagram .netButton::before { content:"\62"; }
+.ep-mailchimp::before { content:"\29"; }
+.ep-twitch::before { content:"\e004"; }
+.ep-magento::before { content:"\e005"; }
+.ep-shopify::before { content:"\e006"; }
+.ep-dropbox::before { content:"\2a"; }
+.ep-google-analytics::before { content:"\2b"; }
+.ep-webhooks::before { content:"\2c"; }
+.ep-telegram::before, .is_telegram .netButton::before { content:"\38"; }
+.ep-pinterest::before, .is_pinterest .netButton::before { content:"\37"; }
+.ep-whatsapp::before, .is_whatsapp .netButton::before { content:"\39"; }
+.ep-line::before, .is_line .netButton::before { content:"\22";}
+.ep-google::before { content:"\28"; }
+.ep-twitter::before, .is_twitter .netButton::before { content:"\74"; }
+.ep-apple::before { content:"\61"; }
+.ep-windows::before { content:"\77"; }
+.ep-youtube::before, .is_youtube .netButton::before { content:"\76"; }
+.ep-linked-in::before, .ep-linkedin::before, .is_linkedin .netButton::before { content:"\26"; }
+.ep-selligent::before { content:"\2d"; }
+.ep-hubspot::before { content:"\2e"; }
+.ep-campaign-monitor::before { content:"\2f"; }
+.ep-campaigner::before { content:"\3a"; }
+.ep-constant-contact::before { content:"\3b"; }
+.ep-freshsales::before { content:"\3f"; }
+.ep-aweber::before { content:"\60"; }
+.ep-excel::before { content:"\7c"; }
+.ep-xeerpa::before { content:"\e001"; }
+.ep-gigya::before { content:"\7d"; }
+.ep-marketo::before { content:"\7e"; }
+.ep-slack::before { content:"\5c"; }
+.ep-zapier::before { content:"\e000"; }
+.ep-wordpress::before { content:"\e002"; }
+.ep-zendesk-sell::before { content:"\e003"; }
+.ep-get-response::before { content:"\5b"; }
+.ep-active-campaign::before { content:"\5f"; }
+.ep-intercom::before { content:"\5d"; }
+.ep-salesforce::before { content:"\5e"; }
+.ep-tik-tok::before, .ep-tiktok::before { content:"\e009"; }
+.ep-sendinblue::before { content:"\e00a"; }
+.ep-mailjet::before { content:"\e00b"; }
+.ep-zoho-crm:before { content:"\e00c"; }
+/** END SECTION Logos / Social **/
+/** CHARSET END **/
+
+/** HIDDEN CHARS TO PUBLIC CHARSET INI **/
+.ep-easypromos-logo-square::before { content:"\31"; }
+.ep-pinterest-square::before { content:"\50"; }
+.ep-line-square::before { content:"\52"; }
+.ep-whatsapp-square::before { content:"\51"; }
+.ep-twitter-square::before { content:"\72"; }
+.ep-telegram-square::before { content:"\4e"; }
+.ep-instagram-square::before, .is_instagram .netButton::before { content:"\62"; }
+
+.ep-bug::before { content:"\42"; }
+
+.ep-google-plus::before, .is_googleplus .netButton::before { content:"\47"; }
+
+.ep-star::before, .ep-star-empty::before, .ep-networks::before { top:-2px !important; }
+.ep-addon::before, .is_addon a::after, .is_addon_this::after { color:#EBC200 !important; }
+.ep-real-madrid::before { content:"\e00f"; }
+/** HIDDEN CHARS TO PUBLIC CHARSET END **/
